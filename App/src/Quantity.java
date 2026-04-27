@@ -45,66 +45,82 @@ public class Quantity<U extends IMeasurable> {
 
     public Quantity<U> add(Quantity<U> other, U targetUnit) {
 
-        if (other == null) throw new IllegalArgumentException("Other null");
-        if (targetUnit == null) throw new IllegalArgumentException("Target null");
+        validateArithmeticOperands(other, targetUnit, true);
 
-        double sum = this.toBase() + other.toBase();
+        double baseResult = performBaseArithmetic(other, ArithmeticOperation.ADD);
 
-        double result = targetUnit.convertFromBaseUnit(sum);
+        double result = targetUnit.convertFromBaseUnit(baseResult);
 
-        return new Quantity<>(result, targetUnit);
+        return new Quantity<>(round(result), targetUnit);
+    }
+    @Override
+    public String toString() {
+        return value + " " + unit.getUnitName();
     }
 
     public Quantity<U> subtract(Quantity<U> other) {
-
-        if (other == null) throw new IllegalArgumentException("Other is null");
-
-        if (this.unit.getClass() != other.unit.getClass())
-            throw new IllegalArgumentException("Different measurement categories");
-
-        double resultBase = this.toBase() - other.toBase();
-
-        double result = this.unit.convertFromBaseUnit(resultBase);
-
-        return new Quantity<>(round(result), this.unit);
+        return subtract(other, this.unit);
     }
 
     public Quantity<U> subtract(Quantity<U> other, U targetUnit) {
 
-        if (other == null) throw new IllegalArgumentException("Other is null");
-        if (targetUnit == null) throw new IllegalArgumentException("Target unit null");
+        validateArithmeticOperands(other, targetUnit, true);
 
-        if (this.unit.getClass() != other.unit.getClass())
-            throw new IllegalArgumentException("Different measurement categories");
+        double baseResult = performBaseArithmetic(other, ArithmeticOperation.SUBTRACT);
 
-        double resultBase = this.toBase() - other.toBase();
-
-        double result = targetUnit.convertFromBaseUnit(resultBase);
+        double result = targetUnit.convertFromBaseUnit(baseResult);
 
         return new Quantity<>(round(result), targetUnit);
     }
 
     public double divide(Quantity<U> other) {
 
-        if (other == null) throw new IllegalArgumentException("Other is null");
+        validateArithmeticOperands(other, null, false);
 
-        if (this.unit.getClass() != other.unit.getClass())
-            throw new IllegalArgumentException("Different measurement categories");
-
-        double divisor = other.toBase();
-
-        if (divisor == 0.0)
-            throw new ArithmeticException("Division by zero");
-
-        return this.toBase() / divisor;
+        return performBaseArithmetic(other, ArithmeticOperation.DIVIDE);
     }
 
     private double round(double value) {
         return Math.round(value * 100.0) / 100.0;
     }
 
-    @Override
-    public String toString() {
-        return value + " " + unit.getUnitName();
+    private enum ArithmeticOperation {
+        ADD, SUBTRACT, DIVIDE
     }
+
+    private void validateArithmeticOperands(Quantity<U> other, U targetUnit, boolean targetRequired) {
+
+        if (other == null) throw new IllegalArgumentException("Other is null");
+
+        if (this.unit.getClass() != other.unit.getClass())
+            throw new IllegalArgumentException("Different measurement categories");
+
+        if (!Double.isFinite(this.value) || !Double.isFinite(other.value))
+            throw new IllegalArgumentException("Invalid numeric value");
+
+        if (targetRequired && targetUnit == null)
+            throw new IllegalArgumentException("Target unit null");
+    }
+
+    private double performBaseArithmetic(Quantity<U> other, ArithmeticOperation op) {
+
+        double a = this.toBase();
+        double b = other.toBase();
+
+        switch (op) {
+            case ADD:
+                return a + b;
+
+            case SUBTRACT:
+                return a - b;
+
+            case DIVIDE:
+                if (b == 0.0) throw new ArithmeticException("Division by zero");
+                return a / b;
+
+            default:
+                throw new IllegalArgumentException("Invalid operation");
+        }
+    }
+
 }
